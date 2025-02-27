@@ -1,0 +1,14 @@
+package ar.edu.unlu.poo.VISTA;
+
+public enum Estado {
+    MENU,
+    AGREGAR_JUGADOR,
+    MENU_JUGADOR,
+    CAMBIAR_FICHAS,
+    AGREGAR_PALABRA,
+    PASAR_TURNO,
+    INGRESAR_FICHA,
+    INGRESAR_POSICION,
+    ESPERANDO_COMANDO,
+    CAMBIANDO_FICHAS,
+}
