@@ -7,14 +7,18 @@ public class Partida implements Serializable {
     private Tablero tablero;
     private Bolsa bolsa;
     private ArrayList<Jugador> jugadores;
-    private String turnoActual;
+    private String turnoActual, nombreHost;
+    private ScrabbleGame ScrabbleGame;
     private int id;
 
-    public Partida(Tablero tablero, Bolsa bolsa, String turnoActual, ArrayList<Jugador> jugadores){
+    public Partida(Tablero tablero, Bolsa bolsa, String turnoActual, ArrayList<Jugador> jugadores, int ID, ScrabbleGame scrabbleGame, String nombreHost){
         this.tablero = tablero;
         this.bolsa = bolsa;
         this.turnoActual = turnoActual;
         this.jugadores = jugadores;
+        this.id = ID;
+        this.ScrabbleGame = scrabbleGame;
+        this.nombreHost = nombreHost;
     }
 
     public Tablero getTablero() {
@@ -31,6 +35,12 @@ public class Partida implements Serializable {
 
     public String getTurnoActual() {
         return turnoActual;
+    }
+
+    public String getNombreHost(){ return nombreHost; }
+
+    public ScrabbleGame getScrabbleGame() {
+        return ScrabbleGame;
     }
 
     public int getId() {

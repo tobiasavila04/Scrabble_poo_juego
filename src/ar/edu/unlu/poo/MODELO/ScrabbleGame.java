@@ -13,17 +13,15 @@ import java.util.stream.Collectors;
 public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Serializable {
     private Tablero tablero;
     private Bolsa bolsa;
-    private Diccionario diccionario;
-    private String turnoActual;
-    private Palabra palabra;
+    private final Diccionario diccionario;
+    private String turnoActual, nombreHost;
     private ArrayList<Jugador> jugadores, jugadoresRegistrados = null;
     private Map<Integer,Partida> partidasGuardadas;
-    private int cantidadJugadores;
-    public static ScrabbleGame instanica;
+    private int cantidadJugadores, id;
+    public static ScrabbleGame instancia;
     private ArrayList<PosicionCelda> posicionesFichas;
     private Map<Jugador, Integer> turnosPasadosJugador, intercambiosPorJugador;
-    private int id;
-
+    private Ranking ranking;
 
     public ScrabbleGame() throws IOException {
         this.jugadores = new ArrayList<>();
@@ -31,29 +29,25 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
         this.bolsa = new Bolsa();
         this.diccionario = new Diccionario();
         this.tablero = new Tablero(diccionario);
-        this.palabra = new Palabra(tablero,diccionario);
+        this.nombreHost = null;
         turnosPasadosJugador = new HashMap<>();
         intercambiosPorJugador = new HashMap<>();
-        if (this.jugadoresRegistrados == null) {
-            this.jugadoresRegistrados = new ArrayList<>();
-        }else{
-            this.jugadoresRegistrados = Serializador.cargarJugadorHistorico();
-        }
-        if (this.partidasGuardadas == null) {
+        this.jugadoresRegistrados = Serializador.cargarJugadorHistorico();
+
+        if((this.partidasGuardadas == null)){
             this.partidasGuardadas = new HashMap<>();
-        }else{
+        }else {
             this.partidasGuardadas = Serializador.cargarPartidaGuardada();
         }
-
+        this.ranking = Ranking.getInstance();
     }
 
     public static ScrabbleGame getInstancia() throws IOException {
-        if(instanica == null){
-            instanica = new ScrabbleGame();
+        if(instancia == null){
+            instancia = new ScrabbleGame();
         }
-        return instanica;
+        return instancia;
     }
-
 
     public void inicializarJuego() throws RemoteException{
         id = GeneratorID.generarID();
@@ -68,17 +62,37 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     public void conectarJugador(Jugador jugador) throws RemoteException {
-        if(!jugadoresRegistrados.contains(jugador)){
-            jugadores.add(jugador);
+        if (!jugadoresRegistrados.contains(jugador)) {
             jugadoresRegistrados.add(jugador);
             Serializador.guardarJugadores(jugadoresRegistrados);
+            if (nombreHost == null) {
+                nombreHost = jugador.getNombre();
+            }
         }
-        if(jugadores.size() == cantidadJugadores){
+        if (!jugadores.contains(jugador)) {
+            jugadores.add(jugador);
+        }
+
+        if (jugadores.size() == cantidadJugadores) {
             inicializarJuego();
             notificarObservadores(Evento.INICIAR_PARTIDA);
-        }else{
+        } else {
             notificarObservadores(Evento.JUGADOR_CONECTADO);
         }
+    }
+
+    public Jugador agregarJugador(String nombre) throws RemoteException{
+        for (Jugador jugador : jugadores) {
+            if (jugador.getNombre().equals(nombre)) {
+                return jugador;
+            }
+        }
+        return new Jugador(nombre);
+    }
+
+
+    public boolean partidaIniciada() throws RemoteException{
+        return nombreHost != null;
     }
 
     public void inicializarPrimerTurno() throws RemoteException{
@@ -94,17 +108,34 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     public boolean esCeldaLibreYValida(PosicionCelda posicion) throws RemoteException{
-        return tablero.getCelda(posicion).getEstado() == EstadoCelda.LIBRE;
+        return !tablero.esCeldaOcupada(posicion.getPosX(), posicion.getPosY());
     }
 
     public void colocarFichaEnCelda(Ficha fichaSeleccioanda, PosicionCelda posicion) throws RemoteException{
-      //  boolean agregado = tablero.agregarFicha(fichaSeleccioanda,posicion);
         if(tablero.agregarFicha(fichaSeleccioanda,posicion)) {
-            getJugadorActual().getAtril().sacarFichaDelAtril(fichaSeleccioanda.getLetra());
+            getJugadorActual().getAtril().sacarFichaDelAtril(fichaSeleccioanda);
             notificarObservadores(Evento.CAMBIOS_PARTIDA);
         }else{
             notificarObservadores(Evento.CELDA_OCUPADA);
         }
+    }
+
+    public void colocarFichaComodinEnCelda(Ficha ficha, PosicionCelda posicion, char letraComodin) throws RemoteException {
+        getJugadorActual().getAtril().sacarFichaDelAtril(ficha);
+        ficha.asignarLetraComodin(letraComodin);
+        if(tablero.agregarFicha(ficha, posicion)) {
+            notificarObservadores(Evento.CAMBIOS_PARTIDA);
+        } else {
+            notificarObservadores(Evento.CELDA_OCUPADA);
+        }
+    }
+
+    public boolean esComodin(Ficha fichaSeleccionada) throws RemoteException{
+        return fichaSeleccionada.esComodin();
+    }
+
+    public ArrayList<Ficha> obtenerFichas() throws RemoteException{
+        return bolsa.obtenerLetrasDisponibles();
     }
 
     public void formarYvalidarPalabra(ArrayList<PosicionCelda> posiciones) throws IOException {
@@ -125,7 +156,7 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
             if (!validarPrimerMovimiento()) {
                 notificarObservadores(Evento.ERROR_CENTRO);
                 return;
-            }else if (!palabra.esPalabraValida(posPalabra)) {
+            }else if (!tablero.validarPalabra(posPalabra)) {
                 notificarObservadores(Evento.ERROR_DICCIONARIO);
                 return;
             }else if (!tablero.validarAdyacentes(posPalabra, direccion) && !esPrimerMovimiento()) {
@@ -133,14 +164,29 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
                 return;
             }
         }
-        int puntos = palabra.calcularPuntos(posiciones,posPalabra, direccion);
-        getJugadorActual().setPuntos(puntos);
+        turnosPasadosJugador.put(getJugadorActual(), 0);
+        int puntos = tablero.calcularPuntosPalabra(posiciones,posPalabra, direccion);
+        getJugadorActual().sumarPuntos(puntos);
         getJugadorActual().getAtril().rellenarAtril(bolsa);
         notificarObservadores(Evento.PALABRA_AGREGADA);
         siguienteTurno();
         if(getJugadorActual().getAtril().getFichasAtril().isEmpty() && bolsa.esVacia()){
+            obtenerGanador();
             notificarObservadores(Evento.FIN_PARTIDA);
         }
+    }
+
+    private boolean validarDireccion(Direccion direccion, ArrayList<PosicionCelda> posiciones) throws RemoteException {
+        if (direccion == Direccion.INVALIDA) {
+            notificarObservadores(Evento.ERROR_POSICIONES);
+            return false;
+        } else if (direccion == Direccion.PUEDE_SER_AMBAS) {
+            if (!tablero.validarAdyacentes(posiciones, direccion)) {
+                notificarObservadores(Evento.ERROR_ADYACENTES);
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean esPrimerMovimiento() {
@@ -153,8 +199,7 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     private boolean validarPrimerMovimiento() {
-        PosicionCelda centro = new PosicionCelda(7,7);
-        return tablero.getCelda(centro).getEstado() == EstadoCelda.OCUPADA;
+        return tablero.esCeldaOcupada(7,7);
     }
 
     public int puntosJugador() throws RemoteException{
@@ -166,13 +211,11 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     public boolean verificarNombreJugador(String nombre) throws RemoteException {
-        if (jugadoresRegistrados == null) {
-            return false;
-        }
         for (Jugador jugador : jugadoresRegistrados) {
-            if (jugador.getNombre().equalsIgnoreCase(nombre)) {
+            if (jugador.getNombre().equals(nombre)) {
                 return true;
             }
+
         }
         return false;
     }
@@ -192,6 +235,22 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
         return null;
     }
 
+    public Jugador obtenerJugadorPartidaYaIniciada(String nombreJugador) throws RemoteException{
+        Map<Integer, Partida> partidaGuardadas = Serializador.cargarPartidaGuardada();
+        Partida partidaCargada = partidaGuardadas.get(id);
+        ArrayList<Jugador> jugadorPartidaGuardada = partidaCargada.getJugadores();
+        for(Jugador jugador : jugadorPartidaGuardada){
+            if(jugador.getNombre().equals(nombreJugador)){
+                return jugador;
+            }
+        }
+        return null;
+    }
+
+    public ArrayList<Jugador> obtenerJugadores() throws RemoteException{
+        return jugadores;
+    }
+
     public Ficha obtenerFichaDelAtril(char letraFicha) throws RemoteException{
         Ficha ficha = getJugadorActual().getAtril().obtenerFichaAtril(letraFicha);
         if(ficha != null){
@@ -202,41 +261,39 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     public ArrayList<Ficha> obtenerFichasAtril(Jugador jugador) throws RemoteException{
-        if(jugador != null){
-           return jugador.getAtril().getFichasAtril();
-        }
-        return null;
+        return jugador.getAtril().getFichasAtril();
     }
 
     public void pasarTurno() throws RemoteException{
-        int turnosPasados = turnosPasadosJugador.getOrDefault(getJugadorActual(),0);
-        turnosPasados++;
+        int turnosPasados = turnosPasadosJugador.getOrDefault(getJugadorActual(),0) + 1;
         turnosPasadosJugador.put(getJugadorActual(), turnosPasados);
         if(turnosPasados >= 2){
+            obtenerGanador();
             notificarObservadores(Evento.FIN_PARTIDA);
         }else {
             siguienteTurno();
         }
     }
 
-    private void siguienteTurno() throws RemoteException {
+    public void siguienteTurno() throws RemoteException {
         int indiceActual = jugadores.indexOf(getJugadorActual());
         int siguiente = (indiceActual + 1) % jugadores.size();
         turnoActual = jugadores.get(siguiente).getNombre();
         notificarObservadores(Evento.PASO_TURNO);
     }
 
-    public void cambiarFichas(ArrayList<Ficha> fichasCambio) throws RemoteException {
+    public boolean cambiarFichas(ArrayList<Ficha> fichasCambio) throws RemoteException {
         Jugador jugador = getJugadorActual();
         int cambiosJugador = intercambiosPorJugador.getOrDefault(jugador,0);
-        if(bolsa.cantidadFichas() < 7 || cambiosJugador >= 2 || jugador.getPuntos() <= 0 || jugador.getAtril().tieneFichasCambio(fichasCambio)) {
+        if(bolsa.cantidadFichas() < 7 || cambiosJugador >= 2 || jugador.getPuntos() <= 0) {
             notificarObservadores(Evento.ERROR_CAMBIO);
-            return;
+            return false;
         }
         jugador.getAtril().cambiarFichas(fichasCambio,bolsa);
         intercambiosPorJugador.put(jugador, ++cambiosJugador);
         notificarObservadores(Evento.FICHAS_CAMBIADAS);
         siguienteTurno();
+        return true;
     }
 
     public Celda[][] getTablero()throws RemoteException{
@@ -259,59 +316,66 @@ public class ScrabbleGame extends ObservableRemoto implements IScrabbleGame, Ser
     }
 
     public void guardarPartida() throws RemoteException {
-        Partida partida = new Partida(tablero, bolsa, turnoActual, jugadores);
+        Partida partida = new Partida(tablero, bolsa, turnoActual, jugadores, id, this, nombreHost);
         if (!partidasGuardadas.containsKey(id)) {
             partidasGuardadas.put(id,partida);
             Serializador.guardarPartida(partidasGuardadas);
+            Serializador.guardarJugadores(jugadoresRegistrados);
+            notificarObservadores(Evento.PARTIDA_GUARDADA);
         }
     }
 
     public boolean cargarPartida(int IDPartida, String nombreJugador) throws RemoteException{
         Map<Integer, Partida> partidaGuardadas = Serializador.cargarPartidaGuardada();
-        if(IDPartida < 0 || IDPartida >=  partidaGuardadas.size()){
-            return false;
-        }
         Partida partidaCargada = partidaGuardadas.get(IDPartida);
-        if(!partidaGuardadas.containsKey(IDPartida) && partidaCargada.contieneJugador(nombreJugador)) {
+        if(partidaGuardadas.containsKey(IDPartida) && partidaCargada.contieneJugador(nombreJugador)) {
             tablero = partidaCargada.getTablero();
             bolsa = partidaCargada.getBolsa();
+            this.jugadores = new ArrayList<>();
+            this.id = IDPartida;
             turnoActual = partidaCargada.getTurnoActual();
-            jugadores = partidaCargada.getJugadores();
+            setCantidadJugadores(partidaCargada.getJugadores().size());
             return true;
         }
         return false;
     }
 
-    public List<Partida> getPartidasGuardadas() throws RemoteException{
+    public ArrayList<Partida> getPartidasGuardadas() throws RemoteException{
         return new ArrayList<>(Serializador.cargarPartidaGuardada().values());
     }
 
-    public List<Jugador> obtenerTop5Jugadores() throws RemoteException{
-        jugadoresRegistrados = Serializador.cargarJugadorHistorico();
-        return jugadoresRegistrados.stream().sorted(Comparator.comparingInt(Jugador::getPuntos).reversed()).limit(5).collect(Collectors.toList());
+    public ArrayList<Jugador> obtenerTop5Jugadores() throws RemoteException{
+       return ranking.obtenerTop5();
     }
 
-    public Jugador obtenerGanador()throws RemoteException{
+    public Jugador obtenerJugadorGanador() throws RemoteException{
         Jugador jugadorGanador = null;
-        int puntosAtril = 0, maxPuntos = 0;
-        for(Jugador jugador : jugadores){
-            if(jugador.getAtril().getFichasAtril().isEmpty()){
-                for(Jugador oponente : jugadores){
-                    if(oponente != jugador){
-                        puntosAtril = oponente.getAtril().puntosRestantes();
-                        jugador.setPuntos(puntosAtril);
-                    }
-                }
-            }else{
-                puntosAtril = jugador.getAtril().puntosRestantes();
-                jugador.restarPuntos(puntosAtril);
-            }
-
-            if(jugador.getPuntos() > 0){
+        int maxPuntos = Integer.MIN_VALUE;
+        for (Jugador jugador : jugadores) {
+            if (jugador.getPuntos() > maxPuntos) {
                 maxPuntos = jugador.getPuntos();
                 jugadorGanador = jugador;
             }
         }
         return jugadorGanador;
+    }
+
+    public void obtenerGanador()throws RemoteException {
+        Serializador.guardarJugadores(jugadoresRegistrados);
+        Jugador jugadorGanador = null;
+        int puntosAtril = 0;
+        for (Jugador jugador : jugadores) {
+            if (jugador.getAtril().getFichasAtril().isEmpty()) {
+                for (Jugador oponente : jugadores) {
+                    if (oponente != jugador) {
+                        puntosAtril = oponente.getAtril().puntosRestantes();
+                        jugador.sumarPuntos(puntosAtril);
+                    }
+                }
+            } else {
+                puntosAtril = jugador.getAtril().puntosRestantes();
+                jugador.restarPuntos(puntosAtril);
+            }
+        }
     }
 }

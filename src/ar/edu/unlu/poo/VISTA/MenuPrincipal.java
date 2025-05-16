@@ -2,23 +2,38 @@ package ar.edu.unlu.poo.VISTA;
 
 import ar.edu.unlu.poo.APPCliente;
 import ar.edu.unlu.poo.APPServidor;
+import ar.edu.unlu.poo.CONTROLADOR.ScrabbleControlador;
+import ar.edu.unlu.poo.MODELO.Jugador;
+import ar.edu.unlu.poo.MODELO.Partida;
+import ar.edu.unlu.poo.MODELO.ScrabbleGame;
+import ar.edu.unlu.poo.Serializador;
 import ar.edu.unlu.rmimvc.RMIMVCException;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.Map;
 
 public class MenuPrincipal extends JFrame {
     private Image imagenFondo;
     private JLabel backgroundLabel;
+    ScrabbleControlador controlador;
+    private VistaGraficaa vista;
+    private String nombreJugador;
 
-    public MenuPrincipal(){
+
+    public MenuPrincipal(VistaGraficaa vista, ScrabbleControlador controlador, String nombre) throws IOException {
         setTitle("Scrabble - Menu Principal");
         setSize(500,700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        this.controlador = controlador;
+        this.vista = vista;
+        this.nombreJugador = nombre;
 
-        imagenFondo = new ImageIcon("src/LETRAS/Menu.png").getImage();
+        imagenFondo = new ImageIcon("src/ar/edu/unlu/poo/RESOURCES/scrabble_img.jpeg").getImage();
         JPanel panelFondo = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -50,16 +65,21 @@ public class MenuPrincipal extends JFrame {
         gbc.anchor = GridBagConstraints.NORTHWEST; // ✅ Alinear a la izquierda
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        crearBoton(panelBotones,"Nueva Partida", e -> {
+        crearBoton(panelBotones,"Cargar Partida", e -> cargarPartida());
+        crearBoton(panelBotones,"Unirse a Partida",e -> {
             try {
-                nuevaPartida();
-            } catch (RMIMVCException | IOException ex) {
+                unirsePartida();
+            } catch (RemoteException ex) {
                 throw new RuntimeException(ex);
             }
         });
-
-        crearBoton(panelBotones,"Cargar Partida", e -> cargarPartida());
-        crearBoton(panelBotones,"Unirse a Partida",e -> unirsePartida());
+        crearBoton(panelBotones, "Ranking", e -> {
+            try {
+                rankingJugadores();
+            } catch (RemoteException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
         crearBoton(panelBotones,"Reglas", e -> reglasJuego());
         crearBoton(panelBotones,"Salir",  e -> System.exit(0));
 
@@ -83,15 +103,18 @@ public class MenuPrincipal extends JFrame {
         panel.add(boton);
     }
 
-    private void unirsePartida() {
-        new APPCliente();
+    private void unirsePartida() throws RemoteException {
+       vista.iniciarJuego();
+      // vista.iniciarVista(nombreJugador);
     }
 
     private void cargarPartida() {
+        new VentanaCargarPartida(vista, nombreJugador);
     }
 
-    private void nuevaPartida() throws RMIMVCException, IOException {
-        new APPServidor();
+    private void rankingJugadores() throws RemoteException {
+        ArrayList<Jugador> jugadores = controlador.obtenerRanking();
+        new RankingVentana(jugadores);
     }
 
     private void reglasJuego() {
@@ -142,10 +165,4 @@ public class MenuPrincipal extends JFrame {
 
         JOptionPane.showMessageDialog(this, scrollPane, "Reglas del Scrabble", JOptionPane.INFORMATION_MESSAGE);
     }
-
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(MenuPrincipal::new);
-    }
-
 }

@@ -5,6 +5,7 @@ import ar.edu.unlu.poo.MODELO.Partida;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 public class Serializador {
@@ -20,8 +21,13 @@ public class Serializador {
         guardarObjeto(ARCHIVO_GUARDAR_JUGADORES, jugador);
     }
 
+
    public static Map<Integer,Partida> cargarPartidaGuardada() {
-        return cargarObjeto(ARCHIVO_GUARDAR_PARTIDAS);
+       Map<Integer,Partida> partidas = cargarObjeto(ARCHIVO_GUARDAR_PARTIDAS);
+        if(partidas == null){
+            partidas = new HashMap<>();
+        }
+        return partidas;
     }
 
     public static ArrayList<Jugador> cargarJugadorHistorico() {

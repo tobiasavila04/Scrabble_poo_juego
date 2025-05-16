@@ -29,15 +29,8 @@ public class Atril  implements Serializable {
         guardarAtril = new ArrayList<>(fichasAtril);
     }
 
-    public Ficha sacarFichaDelAtril(char letra){
-        for(int i = 0; i < fichasAtril.size(); i++){
-            Ficha ficha = fichasAtril.get(i);
-            if(ficha.getLetra() == Character.toUpperCase(letra)){
-                fichasAtril.remove(ficha);
-                return ficha;
-            }
-        }
-        return null;
+    public void sacarFichaDelAtril(Ficha fichaSeleccionada){
+        fichasAtril.remove(fichaSeleccionada);
     }
 
     public void rellenarAtril(Bolsa bolsa){
@@ -50,24 +43,22 @@ public class Atril  implements Serializable {
 
     public Ficha obtenerFichaAtril(char letra){
         for (Ficha ficha : fichasAtril) {
-            if (ficha.getLetra() == letra) {
+            if (ficha.getLetra() == Character.toUpperCase(letra)) {
                 return ficha;
             }
         }
         return null;
     }
 
-    public boolean tieneFichasCambio(ArrayList<Ficha> fichasCambio){
-        return fichasAtril.containsAll(fichasCambio);
-    }
-
     public void cambiarFichas(ArrayList<Ficha> fichasCambio, Bolsa bolsa){
         for (Ficha ficha : fichasCambio){
-            fichasAtril.remove(ficha);
-            bolsa.agregarFicha(ficha);
+            if (fichasAtril.contains(ficha)) { // Nos aseguramos de que sea una ficha real del atril
+                fichasAtril.remove(ficha);      // Elimina esa instancia exacta
+                bolsa.agregarFicha(ficha);      // Devuelve esa misma ficha a la bolsa
+            }
         }
         while(fichasAtril.size() < 7){
-            fichasAtril.add(bolsa.sacarFichaDeLaBolsa());
+            setFichasAtril(bolsa.sacarFichaDeLaBolsa());
         }
     }
 

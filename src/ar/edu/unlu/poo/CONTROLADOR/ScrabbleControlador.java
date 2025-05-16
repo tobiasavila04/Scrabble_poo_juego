@@ -14,26 +14,35 @@ public class ScrabbleControlador implements IControladorRemoto {
     IScrabbleGame juego;
     private String jugadorID;
 
-    public ScrabbleControlador(){}
+    public ScrabbleControlador()  {
+    }
+    
+    public ScrabbleControlador(ScrabbleGame modelo){
+        this.juego = modelo;
+    }
 
     public void setVista(IVista vista){
         this.vista = vista;
     }
 
     public void iniciarJuego() throws RemoteException {
-       // juego.inicializarJuego();
         vista.mostrarTablero(juego.getTablero());
         vista.mostrarAtril();
+        vista.mostrarPuntajes(juego.obtenerJugadores());
     }
 
     public void agregarJugador(String nombre) throws RemoteException {
         jugadorID = nombre;
-        Jugador jugador = new Jugador(nombre);
+        Jugador jugador = juego.agregarJugador(nombre);
         juego.conectarJugador(jugador);
     }
 
-    public Celda[][] obtenerCeldasTablero() throws RemoteException {
-        return juego.getTablero();
+    public boolean perteneceJugadorAPartida(String nombre) throws RemoteException {
+        return juego.obtenerJugadorPartidaYaIniciada(nombre) != null;
+    }
+
+    public boolean partidaYaIniciada() throws RemoteException {
+        return juego.partidaIniciada();
     }
 
     public boolean realizarAccionSiEsTurno() throws RemoteException{
@@ -43,15 +52,23 @@ public class ScrabbleControlador implements IControladorRemoto {
 
     public boolean celdaValida(PosicionCelda posicion) throws RemoteException {
         return juego.esCeldaLibreYValida(posicion);
-
     }
 
-    public void colocarFichaSeleccionadaEnTablero(Ficha fichaSeleccioanda, PosicionCelda posicion) throws RemoteException {
+    public void colocarFichaSeleccionadaEnTablero(Ficha fichaSeleccionada, PosicionCelda posicion) throws RemoteException {
         if(realizarAccionSiEsTurno()) {
             if (juego.esCeldaLibreYValida(posicion)) {
-                juego.colocarFichaEnCelda(fichaSeleccioanda, posicion);
-               // actualizarVista();
+                if(juego.esComodin(fichaSeleccionada)){
+                    vista.pedirFicha(posicion);
+                }else {
+                    juego.colocarFichaEnCelda(fichaSeleccionada, posicion);
+                }
             }
+        }
+    }
+
+    public void colocarFichaComodinEnTablero(Ficha fichaSeleccionada, char letraComodin, PosicionCelda posicion) throws RemoteException {
+        if (juego.esCeldaLibreYValida(posicion)) {
+            juego.colocarFichaComodinEnCelda(fichaSeleccionada, posicion, letraComodin);
         }
     }
 
@@ -67,20 +84,19 @@ public class ScrabbleControlador implements IControladorRemoto {
         return juego.obtenerFichaDelAtril(letraFicha);
     }
     public ArrayList<Ficha> obtenerFichasAtril(String jugadorLocal) throws RemoteException {
-        Jugador jugador = juego.obtenerJugador(jugadorLocal);
-        return juego.obtenerFichasAtril(jugador);
+        return juego.obtenerFichasAtril(juego.obtenerJugador(jugadorLocal));
+    }
+
+    public ArrayList<Ficha> obtenerFichas() throws RemoteException {
+        return juego.obtenerFichas();
     }
 
     public void pasarTurno() throws RemoteException {
         juego.pasarTurno();
     }
 
-    public void cambiarFichas(ArrayList<Ficha> fichasCambiar) throws RemoteException {
-        if(fichasCambiar.isEmpty()){
-            vista.mostrarMensaje("no se seleccionaron fichas! no hubo cambios!");
-        }else {
-            juego.cambiarFichas(fichasCambiar);
-        }
+    public boolean cambiarFichas(ArrayList<Ficha> fichasCambiar) throws RemoteException {
+        return juego.cambiarFichas(fichasCambiar);
     }
 
     public void enviarPalabra(ArrayList<PosicionCelda> posiciones) throws IOException {
@@ -96,36 +112,26 @@ public class ScrabbleControlador implements IControladorRemoto {
         juego.guardarPartida();
     }
 
-   /* public void mostrarTurno() throws RemoteException {
-        Jugador turnoActual = juego.getJugadorActual();
-        String jugadorLocal = vista.getJugadorLocal();
-        if(turnoActual.getNombre().equals(jugadorLocal)){
-            vista.mostrarMensaje("es tu turno " + turnoActual.getNombre());
-        }else{
-            vista.mostrarMensaje("es el turno de " + turnoActual.getNombre());
-        }
-    }*/
+    public void cargarPartida(String nombre, int ID) throws RemoteException {
+        juego.cargarPartida(ID,nombre);
+    }
+
+    public ArrayList<Jugador> obtenerRanking() throws RemoteException {
+        return juego.obtenerTop5Jugadores();
+    }
 
     private void restaurarJuego() throws RemoteException {
         if(realizarAccionSiEsTurno()){
             juego.restaurarEstadoJuego();
+            vista.mostrarAtril();
         }
-        vista.mostrarAtril();
         vista.limpiar();
         vista.mostrarTablero(juego.getTablero());
-    }
-    private void actualizarJugador() throws RemoteException {
-        if(realizarAccionSiEsTurno()){
-            int puntos = juego.puntosJugador();
-            vista.mostrarMensaje("puntos obtenidos: " + puntos);
-
-        }
     }
 
     @Override
     public <T extends IObservableRemoto> void setModeloRemoto(T modeloRemoto) throws RemoteException {
         this.juego = (IScrabbleGame) modeloRemoto;
-        //this.juego.agregarObservador(this);
     }
 
     @Override
@@ -140,16 +146,17 @@ public class ScrabbleControlador implements IControladorRemoto {
                case FICHAS_CAMBIADAS -> {
                    vista.mostrarAtril();
                    vista.mostrarMensaje("fichas cambiadas!");
+                   vista.limpiar();
                }
                case JUGADOR_CONECTADO -> vista.mostrarMensaje("esperando a que se conecte tu opnente..");
                case PASO_TURNO -> vista.mostrarTurno();
                case CAMBIOS_PARTIDA -> {
+                   vista.mostrarAtril();
                    vista.mostrarTablero(juego.getTablero());
-                   //vista.mostrarAtril();
                }
                case ERROR_CAMBIO -> {
                    vista.mostrarMensaje("no se ha podido cambiar las fichas, recuerde debe haber jugado por primera vez y maximo dos veces!");
-                   vista.actualizarAtril(juego.getJugadorActual());
+                   vista.limpiar();
                }
                case ERROR_POSICIONES -> {
                    vista.mostrarMensaje("las posiciones de las fichas no son consecutivas!");
@@ -170,10 +177,18 @@ public class ScrabbleControlador implements IControladorRemoto {
                case PALABRA_AGREGADA -> {
                    vista.mostrarMensaje("palabra exitosa!");
                    vista.mostrarAtril();
-                   //actualizarJugador();
+                   vista.mostrarPuntajes(juego.obtenerJugadores());
                    vista.limpiar();
                }
-               case FIN_PARTIDA -> vista.mostrarMensaje("fin partida!");
+               case PARTIDA_GUARDADA -> {
+                   vista.mostrarMensaje("ya no se puede seguir jugando esta partida, la partida ha sido guardada");
+                   vista.deshabilitarInteraccion();
+               }
+               case FIN_PARTIDA -> {
+                   vista.mostrarMensaje("fin partida!");
+                   Jugador ganador = juego.obtenerJugadorGanador();
+                   vista.mostrarFinDePartida(ganador, juego.obtenerJugadores());
+               }
            }
        }
     }

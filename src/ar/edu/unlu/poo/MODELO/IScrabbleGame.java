@@ -14,6 +14,10 @@ public interface IScrabbleGame extends IObservableRemoto {
 
     void conectarJugador(Jugador jugador) throws RemoteException;
 
+    boolean partidaIniciada() throws RemoteException;
+
+    Jugador obtenerJugadorPartidaYaIniciada(String nombreJugador) throws RemoteException;
+
     void inicializarPrimerTurno() throws RemoteException;
 
     Celda[][] getTablero() throws RemoteException;
@@ -28,11 +32,16 @@ public interface IScrabbleGame extends IObservableRemoto {
 
     Jugador obtenerJugador(String nombreJugador) throws RemoteException;
 
+    ArrayList<Jugador> obtenerJugadores() throws RemoteException;
+
     Ficha obtenerFichaDelAtril(char letraFicha) throws RemoteException;
 
+    void colocarFichaComodinEnCelda(Ficha ficha, PosicionCelda posicion, char letraComodin) throws RemoteException;
     void pasarTurno() throws RemoteException;
 
-    void cambiarFichas(ArrayList<Ficha> fichasCambiar) throws RemoteException;
+    void siguienteTurno() throws RemoteException;
+
+    boolean cambiarFichas(ArrayList<Ficha> fichasCambiar) throws RemoteException;
 
     void formarYvalidarPalabra(ArrayList<PosicionCelda> posiciones) throws IOException;
 
@@ -48,11 +57,17 @@ public interface IScrabbleGame extends IObservableRemoto {
 
     boolean cargarPartida(int IDPartida, String nombreJugador) throws RemoteException;
 
-    List<Partida> getPartidasGuardadas() throws RemoteException;
+    ArrayList<Partida> getPartidasGuardadas() throws RemoteException;
 
-    List<Jugador> obtenerTop5Jugadores() throws RemoteException;
+    ArrayList<Jugador> obtenerTop5Jugadores() throws RemoteException;
 
-    Jugador obtenerGanador()throws RemoteException;
+    Jugador obtenerJugadorGanador()throws RemoteException;
 
+    void obtenerGanador()throws RemoteException;
 
+    boolean esComodin(Ficha ficha) throws RemoteException;
+
+    ArrayList<Ficha> obtenerFichas() throws RemoteException;
+
+    Jugador agregarJugador(String nombre) throws RemoteException;
 }

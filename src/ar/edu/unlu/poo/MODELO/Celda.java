@@ -9,9 +9,9 @@ public class Celda implements Serializable {
     private Ficha ficha;
     private EstadoCelda estado;
 
-    public Celda(PosicionCelda posicion){
+    public Celda(PosicionCelda posicion, BonificacionTablero bonificacion){
         this.posicion = posicion;
-        this.bonificacion = BonificacionTablero.obtenerBonificacion(posicion);
+        this.bonificacion = bonificacion;
         this.ficha = null;
         this.estado = EstadoCelda.LIBRE;
     }
@@ -32,9 +32,17 @@ public class Celda implements Serializable {
         return bonificacion;
     }
 
-    public void agregarFicha(Ficha ficha) {
-        this.ficha = ficha;
-        this.estado = EstadoCelda.OCUPADA;
+    public boolean agregarFicha(Ficha ficha){
+        if(getEstado() == EstadoCelda.LIBRE){
+            this.ficha = ficha;
+            this.estado = EstadoCelda.OCUPADA;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean estaOcupada(){
+        return this.estado == EstadoCelda.OCUPADA;
     }
     public void sacarFicha(){
         this.ficha = null;

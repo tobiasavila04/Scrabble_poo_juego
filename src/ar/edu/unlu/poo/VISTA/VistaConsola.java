@@ -7,13 +7,9 @@ import ar.edu.unlu.poo.MODELO.Jugador;
 import ar.edu.unlu.poo.MODELO.PosicionCelda;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -21,7 +17,7 @@ import java.util.ArrayList;
 public class VistaConsola extends JFrame implements IVista {
     private ScrabbleControlador controlador;
     private String jugadorLocal;
-    private JTextArea textMenu;
+    private JTextArea textMenu, puntajes;
     private JTextField txtInput;
     private JPanel lblAtrilTablero;
     private JLabel atril;
@@ -30,10 +26,16 @@ public class VistaConsola extends JFrame implements IVista {
     private Estado estadoEntrada;
     private Ficha fichaSeleccionada;
     private ArrayList<Ficha> fichasCambio = new ArrayList<>();
+    private PosicionCelda posicionComodin;
 
-    public VistaConsola(ScrabbleControlador controlador) {
+    public VistaConsola(ScrabbleControlador controlador, String nombre) {
         this.controlador = controlador;
+        this.jugadorLocal = nombre;
         controlador.setVista(this);
+        new MenuPrincipalConsola(this, controlador, jugadorLocal);
+    }
+
+    public void iniciarJuego(){
         setTitle("Scrabble Game - Consola");
         setSize(900, 600);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -47,12 +49,14 @@ public class VistaConsola extends JFrame implements IVista {
         tablero.setBackground(Color.BLACK);
         tablero.setForeground(Color.WHITE);
 
-        textMenu = new JTextArea(10,20);
+        textMenu = new JTextArea(10,34);
         textMenu.setFont(new Font("JetBrains Mono", Font.PLAIN, 12));
         textMenu.setEditable(false);
         textMenu.setLineWrap(true);
-        JScrollPane scrollMenu = new JScrollPane(textMenu);
-        scrollMenu.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        textMenu.setBackground(Color.BLACK);
+        textMenu.setForeground(Color.WHITE);
+        JScrollPane scrollMenu = new JScrollPane(textMenu);;
+        scrollMenu.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
         // Panel del atril
         atril = new JLabel("ATRIL: ");
@@ -83,12 +87,24 @@ public class VistaConsola extends JFrame implements IVista {
             }
         });
 
+        puntajes = new JTextArea(5,5);
+        puntajes.setFont(new Font("JetBrains Mono", Font.PLAIN, 12));
+        puntajes.setEditable(false);
+        puntajes.setLineWrap(true);
+        puntajes.setBackground(Color.BLACK);
+        puntajes.setForeground(Color.WHITE);
+
         JPanel panelDerecho = new JPanel(new BorderLayout());
+        JPanel panelInferior = new JPanel(new BorderLayout());
+        panelInferior.add(txtInput, BorderLayout.NORTH);
+        panelInferior.add(puntajes, BorderLayout.SOUTH); // este es el que vos definiste
+
         panelDerecho.add(scrollMenu, BorderLayout.CENTER);
-        panelDerecho.add(txtInput, BorderLayout.SOUTH);
+        panelDerecho.add(panelInferior, BorderLayout.SOUTH);
+
 
         add(lblAtrilTablero, BorderLayout.CENTER);
-        add(panelDerecho, BorderLayout.WEST);
+        add(panelDerecho, BorderLayout.EAST);
     }
 
     private void procesarEntrada(String entrada) throws IOException {
@@ -100,24 +116,27 @@ public class VistaConsola extends JFrame implements IVista {
             case INGRESAR_POSICION -> procesarIngresoPosicion(entrada);
             case CAMBIAR_FICHAS -> procesarCambioFicha(entrada);
             case CAMBIANDO_FICHAS -> procesarCambiandoFicha(entrada);
+            case FICHA_COMODIN -> procesarIngresoFichaComodin(entrada);
         }
     }
 
     private void mostrarMenuJugador() {
-        textMenu.append("\n1 - Colocar Ficha\n");
-        textMenu.append("2 - Enviar Palabra\n");
-        textMenu.append("\nIngrese una opción: ");
+        println("\n1 - Colocar Ficha\n");
+        println("2 - Enviar Palabra\n");
+        println("\nIngrese una opción: ");
     }
 
     private void procesarMenuJugador(String entrada) throws IOException {
         switch (entrada){
             case "1":{
-                textMenu.append("\nIngrese ficha del atril: ");
+                println("\nIngrese ficha del atril: ");
                 estadoEntrada = Estado.INGRESAR_FICHA;
                 break;
             }
             case "2": {
-                controlador.enviarPalabra(posicionesColocadas);
+                if(!posicionesColocadas.isEmpty()) {
+                    controlador.enviarPalabra(posicionesColocadas);
+                }
                 break;
             }
             case "3":
@@ -129,13 +148,13 @@ public class VistaConsola extends JFrame implements IVista {
             fichaSeleccionada = controlador.obtenerFicha(entrada.charAt(0));
 
             if (fichaSeleccionada != null) {
-                textMenu.append("\nIngrese fila: ");
+                println("\nIngrese fila, columna (x,y): ");
                 estadoEntrada = Estado.INGRESAR_POSICION;
             } else {
-                textMenu.append("\nFicha no encontrada. Intente nuevamente: ");
+                println("\nFicha no encontrada. Intente nuevamente: ");
             }
         } else {
-            textMenu.append("\nDebe ingresar una sola letra: ");
+            println("\nDebe ingresar una sola letra: ");
         }
     }
 
@@ -147,25 +166,30 @@ public class VistaConsola extends JFrame implements IVista {
                 int columna = Integer.parseInt(partes[1].trim());
 
                 PosicionCelda posicion = new PosicionCelda(fila, columna);
-                posicionesColocadas.add(posicion);
-                controlador.colocarFichaSeleccionadaEnTablero(fichaSeleccionada,posicion);
-                textMenu.append("\nFicha colocada en (" + fila + "," + columna + ")\n");
-                estadoEntrada = Estado.MENU_JUGADOR;
-                mostrarMenuJugador();
+                if(controlador.celdaValida(posicion)) {
+                    posicionesColocadas.add(posicion);
+                    controlador.colocarFichaSeleccionadaEnTablero(fichaSeleccionada, posicion);
+                    /*println("\nFicha colocada en (" + fila + "," + columna + ")\n");
+                    estadoEntrada = Estado.MENU_JUGADOR;
+                    mostrarMenuJugador();*/
+                }else{
+                    println("la celda ya esta ocupada!");
+                    println("\nIngrese fila, columna (x,y): ");
+                }
             } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
         } else {
-            textMenu.append("\nFormato incorrecto. Use: fila,columna\n");
+            println("\nFormato incorrecto. Use: fila,columna\n");
         }
     }
 
     private void mostrarMenu() {
         estadoEntrada = Estado.MENU;
-        textMenu.append("1 - Colocar palabra\n");
-        textMenu.append("2 - Pasar turno\n");
-        textMenu.append("3 - Cambiar Fichas\n");
-        textMenu.append("\nIngrese una opción: ");
+        println("1 - Colocar palabra\n");
+        println("2 - Pasar turno\n");
+        println("3 - Cambiar Fichas\n");
+        println("\nIngrese una opción: ");
     }
 
     private void procesarMenu(String entrada) throws RemoteException {
@@ -177,7 +201,6 @@ public class VistaConsola extends JFrame implements IVista {
             case "2":
                 controlador.pasarTurno();
                 estadoEntrada = Estado.MENU;
-                mostrarMenu();
                 break;
             case "3":{
                 estadoEntrada = Estado.CAMBIAR_FICHAS;
@@ -188,8 +211,8 @@ public class VistaConsola extends JFrame implements IVista {
     }
 
     private void mostrarMenuCambioFicha() {
-        textMenu.append("\n1 - Seleccionar ficha para cambiar\n");
-        textMenu.append("2 - Cambiar Fichas Seleccionadas\n");
+        println("\n1 - Seleccionar ficha para cambiar\n");
+        println("2 - Cambiar Fichas Seleccionadas\n");
        // println("Fichas seleccionadas " + fichasCambio);
     }
 
@@ -201,13 +224,13 @@ public class VistaConsola extends JFrame implements IVista {
             }
             case "2"->{
                 if (fichasCambio.isEmpty()) {
-                    println("\n⚠️ No ha seleccionado fichas para cambiar.");
+                    println("\nNo ha seleccionado fichas para cambiar.");
                 } else {
-                    controlador.cambiarFichas(fichasCambio); // Enviar fichas al controlador
-                    println("\n✅ Se han cambiado las fichas: " + fichasCambio);
-                    fichasCambio.clear(); // Limpiar la lista después del cambio
+                    if(!controlador.cambiarFichas(fichasCambio)){
+                        mostrarMenu();
+                        estadoEntrada = Estado.MENU;
+                    }
                 }
-                mostrarMenu();
             }
         }
     }
@@ -215,32 +238,28 @@ public class VistaConsola extends JFrame implements IVista {
     private void procesarCambiandoFicha(String entrada) throws RemoteException {
         if (entrada.length() == 1) {
             fichaSeleccionada = controlador.obtenerFicha(entrada.charAt(0));
-            //System.out.println("Intentando obtener ficha: " + entrada);
             if (fichaSeleccionada != null) {
                 fichasCambio.add(fichaSeleccionada);
-                System.out.println("Intentando obtener ficha: " + entrada);
             } else {
                 println("\n Ficha no encontrada en el atril.");
             }
         } else {
             println("\n Ingrese solo una letra.");
         }
-        mostrarMenuCambioFicha();  // Actualizar el menú
+        mostrarMenuCambioFicha();
         estadoEntrada = Estado.CAMBIAR_FICHAS;
     }
 
     @Override
     public void mostrarMensaje(String texto) {
-        textMenu.append("\n" + texto + "\n");
+        if(textMenu != null) {
+            textMenu.append("\n" + texto + "\n");
+        }
     }
 
     private void println(String texto) {
-        textMenu.append(texto + "\n");
-    }
-
-    @Override
-    public void actualizarAtril(Jugador jugador) throws RemoteException {
-
+        textMenu.append(texto);
+        textMenu.setCaretPosition(textMenu.getDocument().getLength());
     }
 
     @Override
@@ -250,44 +269,53 @@ public class VistaConsola extends JFrame implements IVista {
         int columnas = celdas[0].length;
         tablero.setText("");
 
-        //mensaje.append("    ");
+        mensaje.append("     ");
         for (int c = 0; c < columnas; c++) {
-            mensaje.append(String.format("\t%2d ", c));
+            mensaje.append(String.format("  %-6d", c));
         }
-        mensaje.append("\n   ┌");
-        mensaje.append("───────────".repeat(columnas));
+        mensaje.append("\n");
+        mensaje.append("   ┌");
+        mensaje.append("────────".repeat(columnas));
         mensaje.append("┐\n");
 
+
         for (int i = 0; i < celdas.length; i++) {
-            mensaje.append(String.format("%2d │  ", i));
+            mensaje.append(String.format("%2d |", i));
             for (int j = 0; j < celdas[i].length; j++) {
                 Celda celda = celdas[i][j];
+                String contenido;
                 if (celda.getFicha() != null) {
-                    mensaje.append(celda.getFicha().getLetra()).append("   "); // Letra de la ficha
+                    contenido = "   " + celda.getFicha().getLetra() + "   ";// Letra de la ficha
                 } else {
                     switch (celda.getBonificacion()) {
-                        case TRIPLE_PALABRA -> mensaje.append("3 W "); // Triple Word
-                        case DOBLE_PALABRA -> mensaje.append("2 W "); // Double Word
-                        case TRIPLE_LETRA -> mensaje.append("3 L "); // Triple Letter
-                        case DOBLE_LETRA -> mensaje.append("2 L "); // Double Letter
-                        default -> mensaje.append("- - "); // Celda normal
+                        case TRIPLE_PALABRA -> contenido = "  3 W  ";
+                        case DOBLE_PALABRA -> contenido = "  2 W  ";
+                        case TRIPLE_LETRA  -> contenido = "  3 L  ";
+                        case DOBLE_LETRA  -> contenido = "  2 L  ";
+                        default            -> contenido = "  - -  ";
                     }
                 }
-                mensaje.append(" │   ");
+                mensaje.append(contenido);
+                mensaje.append("|");
             }
-            mensaje.append("\n   ├");
-            mensaje.append("─────────".repeat(columnas));
-            mensaje.append("─┤\n");
+            mensaje.append("\n");
+            if (i < filas - 1) {
+                mensaje.append("   |");
+                mensaje.append("────────".repeat(columnas));
+                mensaje.append("|\n");
+            }
         }
         mensaje.append("   └");
-        mensaje.append("──────────".repeat(columnas));
+        mensaje.append("────────".repeat(columnas));
         mensaje.append("┘\n");
+        tablero.setFont(new Font("Consolas", Font.PLAIN, 13));
         tablero.setText(mensaje.toString());
     }
 
-
     @Override
     public void mostrarAtril() throws RemoteException {
+        estadoEntrada = Estado.MENU_JUGADOR;
+        mostrarMenuJugador();
         ArrayList<Ficha> fichas = controlador.obtenerFichasAtril(this.jugadorLocal);
         StringBuilder atrilTexto = new StringBuilder("Atril: ");
 
@@ -297,28 +325,50 @@ public class VistaConsola extends JFrame implements IVista {
         atril.setText(atrilTexto.toString());
     }
 
+    public void mostrarPuntajes(ArrayList<Jugador> jugadores) {
+        StringBuilder sb = new StringBuilder();
+        int ancho = 45;
+
+        sb.append("═".repeat(ancho)).append("\n");
+        sb.append("║             PUNTAJES DE JUGADORES             ║\n");
+        sb.append("═".repeat(ancho)).append("\n");
+
+        for (Jugador jugador : jugadores) {
+            sb.append(String.format("%-10s: %3d puntos\n", jugador.getNombre(), jugador.getPuntos()));
+        }
+
+        sb.append("═".repeat(ancho)).append("\n");
+        puntajes.setText(sb.toString()); // Reemplaza el contenido
+        puntajes.setCaretPosition(0); // Opcional: mostrar desde arriba
+    }
+
+    public void mostrarFinDePartida(Jugador ganador, ArrayList<Jugador> jugadores) {
+        txtInput.setEnabled(false);
+        tablero.setText("═════════════════════════════════════════\n");
+        tablero.append("¡La partida ha terminado!\n");
+        tablero.append("El ganador es: " + ganador.getNombre() + " con " + ganador.getPuntos() + " puntos.\n");
+        tablero.append("═════════════════════════════════════════\n\n");
+
+        tablero.append("🎯 RESULTADOS FINALES 🎯\n");
+        for (Jugador jugador : jugadores) {
+            tablero.append("👤 " + jugador.getNombre() + " - " + jugador.getPuntos() + " puntos\n");
+        }
+
+        tablero.append("\nGracias por jugar 🎉");
+    }
+
     @Override
-    public void iniciarVista() throws RemoteException {
-        String nombreJugador = ingresarNombre();
-        this.jugadorLocal = nombreJugador;
-        controlador.agregarJugador(nombreJugador);
+    public void deshabilitarInteraccion() {
+        txtInput.setEnabled(false);
+    }
+
+
+    @Override
+    public void iniciarVista(String nombre) throws RemoteException {
+        controlador.agregarJugador(nombre);
         setVisible(true);
     }
-    public String ingresarNombre() throws RemoteException {
-        String nombre;
-        do {
-            nombre = JOptionPane.showInputDialog(this, "ingrese nombre", "unirse a scrabble", JOptionPane.PLAIN_MESSAGE);
 
-            if (nombre == null || nombre.trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Debe ingresar un nombre para unirse a la partida.", "Error", JOptionPane.ERROR_MESSAGE);
-            } else if (controlador.existeNombre(nombre)) {
-                JOptionPane.showMessageDialog(this, "El nombre ya existe", "Error", JOptionPane.ERROR_MESSAGE);
-                nombre = null; // Forzar repetir el bucle
-            }
-        } while (nombre == null);
-
-        return nombre;
-    }
 
     @Override
     public String getJugadorLocal() {
@@ -326,17 +376,32 @@ public class VistaConsola extends JFrame implements IVista {
     }
 
     @Override
-    public void limpiar() {
+    public void limpiar() throws RemoteException {
         posicionesColocadas.clear();
+        fichasCambio.clear();
+    }
 
+    @Override
+    public void pedirFicha(PosicionCelda posicion) throws RemoteException {
+        println("ingrese letra comodin (A-Z): ");
+        estadoEntrada = Estado.FICHA_COMODIN;
+        this.posicionComodin = posicion;
+    }
+
+    private void procesarIngresoFichaComodin(String entrada) throws RemoteException {
+        if (entrada.length() == 1 &&  Character.isLetter(entrada.charAt(0))) {
+            controlador.colocarFichaComodinEnTablero(fichaSeleccionada, Character.toUpperCase(entrada.charAt(0)), posicionComodin);
+        } else {
+            mostrarMensaje("Letra inválida. Ingrese una sola letra (A-Z).");
+        }
     }
 
     public void mostrarTurno() throws RemoteException {
         if(turnoActual()){
-            mostrarMensaje("es tu turno " + controlador.obtenerTurnoActual());
+            println("\nes tu turno " + controlador.obtenerTurnoActual() + "\n");
             mostrarMenu();
         }else{
-            mostrarMensaje("es el turno de " +  controlador.obtenerTurnoActual());
+            println("\nes el turno de " +  controlador.obtenerTurnoActual() + "\n");
         }
     }
 
@@ -344,6 +409,4 @@ public class VistaConsola extends JFrame implements IVista {
         String jugadorTurno = controlador.obtenerTurnoActual();
         return jugadorTurno.equals(jugadorLocal);
     }
-
-
 }

@@ -1,15 +1,26 @@
 package ar.edu.unlu.poo.MODELO;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
 
-public class Bolsa {
+public class Bolsa implements Serializable {
     private ArrayList<Ficha> fichas;
 
     public Bolsa(){
         fichas = new ArrayList<>();
         iniciarFichasEnBolsa();
+    }
+
+    public ArrayList<Ficha> obtenerLetrasDisponibles() {
+        ArrayList<Ficha> letras = new ArrayList<>();
+        for (Ficha ficha : fichas) {
+            if (!letras.contains(ficha) && ficha.getLetra() != '_') {
+                letras.add(ficha);
+            }
+        }
+        return letras;
     }
 
     public void iniciarFichasEnBolsa(){
@@ -40,7 +51,7 @@ public class Bolsa {
         agregarFicha('X',1,8);
         agregarFicha('Y',1,4);
         agregarFicha('Z',1,10);
-        agregarFicha('_',2,0);
+        agregarFicha('_',20,0);
     }
 
     private void agregarFicha(char letra, int cantidad, int puntos){

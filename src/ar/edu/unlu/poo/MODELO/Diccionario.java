@@ -3,11 +3,12 @@ package ar.edu.unlu.poo.MODELO;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.HashSet;
 
 import java.util.Set;
 
-public class Diccionario {
+public class Diccionario implements Serializable {
     private static final String NOMBRE_ARCHIVO = "C:\\Users\\Tobias\\IdeaProjects\\Scrabble_poo\\src\\ar\\edu\\unlu\\poo\\MODELO/es_dic.txt";
     private HashSet<String> palabrasDiccionario;
 

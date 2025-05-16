@@ -5,7 +5,7 @@ import java.io.File;
 public class GeneratorID {
     private static final String ARCHIVO_ID = "PARTIDAS_ID.DAT";
 
-    public static int generarID(){
+    public static synchronized int generarID(){
         Integer id = Serializador.cargarObjeto(ARCHIVO_ID);
         if(id == null){
             id = 0;

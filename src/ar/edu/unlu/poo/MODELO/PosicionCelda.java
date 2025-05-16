@@ -11,11 +11,11 @@ public class PosicionCelda implements Serializable {
         this.posicionY = posY;
     }
 
-    public int getPosicionX() {
+    public int getPosX() {
         return posicionX;
     }
 
-    public int getPosicionY() {
+    public int getPosY() {
         return posicionY;
     }
 }

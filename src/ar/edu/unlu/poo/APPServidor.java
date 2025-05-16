@@ -1,5 +1,6 @@
 package ar.edu.unlu.poo;
 
+import ar.edu.unlu.poo.CONTROLADOR.ScrabbleControlador;
 import ar.edu.unlu.poo.MODELO.ScrabbleGame;
 import ar.edu.unlu.rmimvc.RMIMVCException;
 import ar.edu.unlu.rmimvc.Util;
@@ -11,7 +12,7 @@ import java.rmi.RemoteException;
 import java.util.ArrayList;
 
 public class APPServidor {
-    public APPServidor() throws IOException, RMIMVCException {
+    public static void main(String[] args) throws IOException {
         ArrayList<String> ips = Util.getIpDisponibles();
         String ip = (String) JOptionPane.showInputDialog(
                 null,
@@ -61,6 +62,17 @@ public class APPServidor {
         } catch (RMIMVCException e) {
             System.out.println("Error al iniciar el servidor RMI: " + e.getMessage());
             // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public APPServidor(ScrabbleGame modelo, String Nombre, int ID) throws IOException {
+        ScrabbleControlador controlador = new ScrabbleControlador(modelo);
+        try {
+            controlador.cargarPartida(Nombre, ID);
+            JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), "Se ha iniciado correctamente el servidor.\nPara unirte a la partida, volvé al menú principal y seleccioná la opción 'Unirse a un servidor',\ncompletando con los datos de tu computadora/red.'", "Servidor iniciado.", JOptionPane.INFORMATION_MESSAGE);
+        } catch (RemoteException e) {
+            JOptionPane.showMessageDialog(JOptionPane.getRootFrame(), "No se ha podido iniciar correctamente el servidor. Vuelva a intentar.", "Error al iniciar el servidor", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
     }

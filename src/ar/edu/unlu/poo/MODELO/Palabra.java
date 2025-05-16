@@ -1,10 +1,11 @@
 package ar.edu.unlu.poo.MODELO;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 
-public class Palabra {
+public class Palabra implements Serializable {
     private Tablero tablero;
     private Diccionario diccionario;
 
@@ -42,15 +43,16 @@ public class Palabra {
     private int calcularPuntosAdyacentes(ArrayList<PosicionCelda> posiciones, Direccion direccion) {
         int puntos = 0;
         for(PosicionCelda posicion : posiciones){
-            int fila = posicion.getPosicionX();
-            int columna = posicion.getPosicionY();
-            int multiplicador = 1,puntosPalabra = 0;
+            int fila = posicion.getPosX();
+            int columna = posicion.getPosY();
             if(direccion == Direccion.HORIZONTAL || direccion == Direccion.PUEDE_SER_AMBAS){
+                int puntosPalabra = 0;
+                int multiplicador = 1;
                 StringBuilder palabra = new StringBuilder();
-                while(fila > 0 && tablero.getCelda(new PosicionCelda(fila-1, columna)).getEstado() == EstadoCelda.OCUPADA){
+                while(fila > 0 && tablero.getCelda(fila-1, columna).getEstado() == EstadoCelda.OCUPADA){
                     fila--;
                 }
-                while(fila < 15 && tablero.getCelda(new PosicionCelda(fila,columna)).getEstado() == EstadoCelda.OCUPADA){
+                while(fila < 15 && tablero.getCelda(fila,columna).getEstado() == EstadoCelda.OCUPADA){
                     Celda celda = tablero.getCelda(new PosicionCelda(fila,columna));
                     Ficha ficha = celda.getFicha();
                     palabra.append(ficha.getLetra());
@@ -63,12 +65,14 @@ public class Palabra {
                 }
             }
             if(direccion == Direccion.VERTICAL || direccion == Direccion.PUEDE_SER_AMBAS){
+                int puntosPalabra = 0;
+                int multiplicador = 1;
                 StringBuilder palabra = new StringBuilder();
                 while(columna > 0 && tablero.getCelda(new PosicionCelda(fila,columna-1)).getEstado() == EstadoCelda.OCUPADA){
                     columna--;
                 }
-                while(columna < 15 && tablero.getCelda(new PosicionCelda(fila,columna)).getEstado() == EstadoCelda.OCUPADA){
-                    Celda celda = tablero.getCelda(new PosicionCelda(fila,columna));
+                while(columna < 15 && tablero.getCelda(fila,columna).getEstado() == EstadoCelda.OCUPADA){
+                    Celda celda = tablero.getCelda(fila,columna);
                     Ficha ficha = celda.getFicha();
                     palabra.append(ficha.getLetra());
                     puntosPalabra += ficha.getPuntos() * celda.getBonificacionLetra();

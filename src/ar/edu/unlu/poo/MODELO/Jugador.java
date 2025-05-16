@@ -22,7 +22,7 @@ public class Jugador implements Serializable {
         return puntos;
     }
 
-    public void setPuntos(int puntos) {
+    public void sumarPuntos(int puntos) {
         this.puntos += puntos;
     }
     public void restarPuntos(int puntos){
